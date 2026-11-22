@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Пошаговый учебный хеш и сравнение SHA-1, SHA-256, SHA-384 и SHA-512.">
+<title>Лаборатория хеширования</title>
+<style>
+:root{color-scheme:light;--bg:#fff;--panel:#fff;--line:#cbd8d6;--ink:#172c2a;--muted:#445a56;--accent:#156448;--diff:#9a4400}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.55 system-ui,sans-serif}main,header,footer{width:min(1020px,calc(100% - 2rem));margin:auto}header{padding:clamp(2rem,7vw,5rem) 0 1.5rem}h1,h2{line-height:1.13;margin:.35em 0}h1{font-size:clamp(2.15rem,7vw,4.5rem);letter-spacing:-.045em;overflow-wrap:anywhere}h2{font-size:clamp(1.4rem,4vw,2rem)}p{max-width:70ch}.muted,p{color:var(--muted)}.pill{color:var(--accent);font:700 .9rem ui-monospace,monospace;letter-spacing:.08em}nav,.actions{display:flex;gap:.7rem;flex-wrap:wrap}a{color:var(--accent);text-underline-offset:.2em}nav{margin-top:1.35rem;gap:1.5rem}section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:clamp(1rem,4vw,2rem);margin-bottom:1.2rem}label{display:grid;gap:.4rem;font-weight:650}textarea,input{max-width:100%;width:100%;background:#fff;border:1px solid #809692;border-radius:8px;color:var(--ink);font:inherit;padding:.55rem .65rem}textarea{resize:vertical}input[type=file]{padding:.45rem}button{background:var(--accent);color:#fff;border:1px solid transparent;border-radius:8px;padding:.55rem .85rem;font:700 .95rem system-ui;cursor:pointer}.secondary{background:transparent;border-color:#809692;color:var(--ink)}button:disabled{opacity:.6;cursor:default}:focus-visible{outline:3px solid var(--diff);outline-offset:4px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.actions{margin:1rem 0}details{margin:1rem 0}summary{cursor:pointer;font-weight:650}.hex{font:1rem/1.7 ui-monospace,Consolas,monospace;overflow-wrap:anywhere;background:#f2f7f6;padding:.6rem .8rem;border-radius:8px;margin:.35rem 0;letter-spacing:.06em;color:var(--ink)}mark{background:transparent;color:var(--diff);font-weight:750}.bits{display:grid;grid-template-columns:repeat(32,minmax(0,1fr));gap:3px;width:min(100%,560px);margin-top:1rem}.bits i{aspect-ratio:1;background:#cfdfdc;border-radius:2px}.bits .changed{background:#ce6d20}.metrics{font-weight:750;color:var(--ink);min-height:1.5em}fieldset{border:1px solid var(--line);border-radius:8px;margin:1rem 0;padding:.8rem;min-width:0}footer{padding:1rem 0 2.5rem}[hidden]{display:none!important}@media(max-width:590px){.grid{grid-template-columns:1fr}.bits{gap:2px}}
+.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:.55rem .65rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}.step-calculation{white-space:pre-line;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.current-step{background:#e8f4ee}.hex{white-space:pre-wrap}select{width:100%;background:#101719;border:1px solid #668183;border-radius:8px;color:var(--ink);font:inherit;padding:.55rem .65rem}.result-label{margin-top:.9rem}</style>
+<header><div class="pill">ИНТЕРАКТИВНЫЙ ПРАКТИКУМ</div><h1>Лаборатория хеширования</h1><p>Проследите вычисление учебного хеша по буквам. Затем сравните реальные алгоритмы и проверьте целостность файла.</p><nav aria-label="Разделы"><a href="#toy">Учебный алгоритм</a><a href="#text">Сравнение хешей</a><a href="#file">Проверка файла</a><a href="#theory">Как это работает</a></nav></header>
+<main>
+<section id="toy">
+<h2>Учебный алгоритм хеширования</h2>
+<p>Введите слово из русских или английских букв. Русские буквы нумеруются от А = 1 до Я = 33, включая Ё = 7. Английские — от A = 1 до Z = 26. Начальное значение h<sub>0</sub> равно длине сообщения. На каждом шаге прибавьте номер буквы, возведите сумму в квадрат и найдите остаток от деления на p.</p>
+<div class="hex">h<sub>i</sub> = (n<sub>i</sub> + h<sub>i−1</sub>)² mod p</div>
+<div class="grid"><label>Сообщение<input id="toyInput" maxlength="40" autocomplete="off" spellcheck="false"></label>
+<label>Модуль p<input id="toyMod" value="79" inputmode="numeric" maxlength="12" autocomplete="off"></label></div>
+<p id="toyBytes" class="hex"></p>
+<div class="actions"><button id="toyNext">Следующая буква</button><button id="toyPrev" class="secondary">Предыдущий шаг</button><button id="toyAll" class="secondary">Показать весь расчёт</button><button id="toyReset" class="secondary">На начало</button></div>
+<p id="toyStatus" class="metrics" role="status"></p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Шаг</th><th scope="col">Буква и номер</th><th scope="col">Вычисление и остаток от деления</th><th scope="col">Результат</th></tr></thead><tbody id="toyRows"></tbody></table></div>
+<details><summary>Нумерация букв обоих алфавитов</summary><p><strong>Русский</strong><br><span id="alphabet"></span></p><p><strong>Английский</strong><br><span id="latinAlphabet"></span></p><p>Алфавиты можно смешивать. Буквы с одинаковым номером дают один и тот же вклад в расчёт.</p></details>
+</section>
+
+
+<section id="text"><h2>Сравнение криптографических хешей</h2><label>Алгоритм для текста и файла<select id="algorithm"><option>SHA-1</option><option selected>SHA-256</option><option>SHA-384</option><option>SHA-512</option></select></label><p id="algorithmInfo"></p>
+<div class="grid"><label>Исходный текст<textarea id="original" rows="2" spellcheck="false">Кибербезопасность</textarea></label><label>Текст для сравнения<textarea id="modified" rows="2" spellcheck="false">Кибербезопасность</textarea></label></div>
+<div class="actions"><button id="change">Изменить один символ</button><button class="secondary" id="reset">Вернуть пример</button></div>
+<div class="grid"><div><strong>Хеш исходного текста</strong><div class="hex" id="hashA"></div></div><div><strong>Хеш текста для сравнения</strong><div class="hex" id="hashB"></div></div></div>
+<p class="metrics" id="metrics" role="status"></p><div class="bits" id="bits" aria-hidden="true"></div>
+<p>Каждая ячейка — один бит хеша. Янтарным выделены биты, которые различаются. В строке хеша цвет показывает отличающиеся шестнадцатеричные символы.</p>
+<details><summary>Посмотреть входные байты UTF-8</summary><p>Исходный текст</p><div class="hex" id="bytesA"></div><p>Текст для сравнения</p><div class="hex" id="bytesB"></div></details></section>
+<section id="file"><h2>Проверка файла</h2><p id="fileAlgorithm"></p><p>Выберите свой файл или загрузите встроенный пример. Для проверки своего файла вставьте хеш для выбранного алгоритма из доверенного источника.</p>
+<label>Файл с устройства, до 32 МиБ<input type="file" id="pick"></label>
+<div class="actions"><button type="button" id="sample">Загрузить учебный пример</button><button type="button" id="alter" class="secondary" disabled>Изменить учебный файл</button></div>
+<div id="fileInfo" role="status"></div><div class="hex" id="fileHash" hidden></div>
+<form id="verify"><label>Эталонный хеш<input id="expected" autocomplete="off" spellcheck="false" placeholder="Шестнадцатеричные символы"></label><div class="actions"><button>Сравнить с эталоном</button></div><p class="metrics" id="verdict" role="status"></p></form>
+<p>Файл обрабатывается в браузере. В учебном примере эталоном служит хеш исходной версии. При работе с реальным файлом доверие к проверке зависит от происхождения эталона.</p></section>
+<section id="theory"><h2>Как устроены алгоритмы SHA</h2>
+<ol><li><strong>Байты.</strong> Текст кодируется в UTF-8. У файла берутся исходные байты.</li><li><strong>Блоки.</strong> SHA-1 и SHA-256 обрабатывают блоки по 512 бит, SHA-384 и SHA-512 — по 1024 бита. В поток добавляют дополнение и исходную длину сообщения. Каждый блок обновляет внутреннее состояние.</li><li><strong>Отпечаток.</strong> Длина зависит от выбранной функции. Каждый шестнадцатеричный символ представляет четыре бита.</li></ol>
+<p>Одинаковые байты дают одинаковый хеш. Даже небольшое изменение обычно меняет много битов. Пробел, перевод строки и кодировка тоже влияют на вход. Хеширование не предусматривает операции расшифрования.</p>
+<p><a href="https://csrc.nist.gov/pubs/fips/180-4/upd1/final">NIST FIPS 180-4 · официальный стандарт семейства SHA</a></p><p><a href="https://www.nist.gov/news-events/news/2022/12/nist-transitioning-away-sha-1-all-applications">NIST · переход с SHA-1</a></p></section>
+</main><footer>Практикум по персональной кибербезопасности</footer>
+<script>
+const el = id => document.getElementById(id);
+const encoder = new TextEncoder();
+const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+const digest = async (data, algorithm) => new Uint8Array(await crypto.subtle.digest(algorithm, data));
+const algorithms = {'SHA-1':160,'SHA-256':256,'SHA-384':384,'SHA-512':512};
+const selected = () => el('algorithm').value;
+function showAlgorithm() {
+  const name = selected();
+  el('algorithmInfo').textContent = name + ' · ' + algorithms[name] + ' бит · ' + algorithms[name] / 4 + ' символов hex.' +
+    (name === 'SHA-1' ? ' Для SHA-1 известны практические коллизии. Здесь он используется для сравнения.' : '');
+  el('expected').placeholder = algorithms[name] / 4 + ' символов hex';
+  el('fileAlgorithm').textContent = 'Выбран алгоритм ' + name + '. Он меняется в разделе «Сравнение криптографических хешей».';
+}
+const example = 'Кибербезопасность';
+let revision = 0;
+function renderHex(node, value, other) {
+  node.replaceChildren(...Array.from(value, (char, index) => {
+    if (char === other[index]) return document.createTextNode(char);
+    const mark = document.createElement('mark');
+    mark.textContent = char;
+    return mark;
+  }));
+}
+async function compareText() {
+  const run = ++revision;
+  const a = encoder.encode(el('original').value);
+  const b = encoder.encode(el('modified').value);
+  try {
+    const name = selected();
+    const [ha, hb] = await Promise.all([digest(a, name), digest(b, name)]);
+    if (run !== revision) return;
+    renderHex(el('hashA'), hex(ha), hex(hb));
+    renderHex(el('hashB'), hex(hb), hex(ha));
+    el('bytesA').textContent = hex(a).match(/../g)?.join(' ') ?? '(пустой ввод)';
+    el('bytesB').textContent = hex(b).match(/../g)?.join(' ') ?? '(пустой ввод)';
+    const total = ha.length * 8;
+    const cells = [];
+    let count = 0;
+    for (let i = 0; i < ha.length; i++) {
+      for (let bit = 7; bit >= 0; bit--) {
+        const changed = ((ha[i] ^ hb[i]) >> bit) & 1;
+        const cell = document.createElement('i');
+        if (changed) cell.className = 'changed';
+        cells.push(cell);
+        count += changed;
+      }
+    }
+    el('bits').replaceChildren(...cells);
+    el('metrics').textContent = 'Различаются ' + count + ' из ' + total + ' бит (' +
+      new Intl.NumberFormat('ru', {maximumFractionDigits:1}).format(count / total * 100) + ' %). Вход: ' + a.length + ' и ' + b.length + ' байт.';
+  } catch {
+    if (run === revision) el('metrics').textContent = 'Вычисление недоступно. Откройте страницу в современном браузере.';
+  }
+}
+for (const id of ['original','modified']) el(id).addEventListener('input', compareText);
+el('change').onclick = () => {
+  const [first, ...rest] = Array.from(el('original').value);
+  el('modified').value = (first === 'А' ? 'Б' : 'А') + rest.join('');
+  compareText();
+};
+el('reset').onclick = () => {
+  el('original').value = example;
+  el('modified').value = example;
+  compareText();
+};
+let fileRun = 0;
+let current = '';
+let activeFile;
+const sampleText = 'Код,Имя,Отдел\n1,Ника,Архив\n';
+async function showFile(name, read, sample = false) {
+  const run = ++fileRun;
+  const algorithm = selected();
+  activeFile = {name, read, sample};
+  current = '';
+  el('fileHash').hidden = true;
+  el('alter').disabled = true;
+  el('verdict').textContent = '';
+  el('fileInfo').textContent = 'Вычисляется хеш…';
+  try {
+    const data = await read();
+    const calculated = hex(await digest(data, algorithm));
+    const expected = sample ? hex(await digest(encoder.encode(sampleText), algorithm)) : '';
+    if (run !== fileRun) return;
+    current = calculated;
+    if (sample) el('expected').value = expected;
+    el('fileHash').textContent = current;
+    el('fileHash').hidden = false;
+    el('alter').disabled = !sample;
+    el('fileInfo').textContent = name + ' · ' + data.byteLength + ' байт';
+  } catch {
+    if (run === fileRun) el('fileInfo').textContent = 'Не удалось прочитать файл или вычислить хеш.';
+  }
+}
+el('pick').onchange = () => {
+  const file = el('pick').files[0];
+  if (!file) return;
+  el('expected').value = '';
+  showFile(file.name, () => {
+    if (file.size > 32 * 1024 * 1024) throw new Error('size');
+    return file.arrayBuffer();
+  });
+  if (file.size > 32 * 1024 * 1024) {
+    ++fileRun;
+    activeFile = undefined;
+    el('fileInfo').textContent = 'Выберите файл размером до 32 МиБ.';
+  }
+};
+function loadSample(changed) {
+  el('pick').value = '';
+  return showFile(changed ? 'students-edited.csv' : 'students.csv',
+    () => encoder.encode(changed ? sampleText.replace('Архив','Склад') : sampleText), true);
+}
+el('sample').onclick = () => loadSample(false);
+el('alter').onclick = () => loadSample(true);
+el('expected').oninput = () => { el('verdict').textContent = ''; };
+el('verify').onsubmit = event => {
+  event.preventDefault();
+  const expected = el('expected').value.replace(/\s/g,'').toLowerCase();
+  el('verdict').textContent = !current ? 'Сначала выберите файл или учебный пример.'
+    : (expected.length !== algorithms[selected()] / 4 || !/^[a-f0-9]+$/.test(expected)) ? 'Введите эталон из ' + algorithms[selected()] / 4 + ' шестнадцатеричных символов.'
+    : expected === current ? 'Хеш совпал с эталоном.' : 'Хеш отличается. Проверьте версию файла и эталон.';
+};
+el('algorithm').onchange = () => {
+  showAlgorithm();
+  compareText();
+  el('expected').value = '';
+  el('verdict').textContent = '';
+  if (activeFile) showFile(activeFile.name, activeFile.read, activeFile.sample);
+};
+showAlgorithm();
+compareText();
+const alphabet = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+const latinAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const alphabetLegend = letters => Array.from(letters, (letter,i) => letter + ' = ' + (i+1)).join(' · ');
+el('alphabet').textContent = alphabetLegend(alphabet);
+el('latinAlphabet').textContent = alphabetLegend(latinAlphabet);
+const letterNumber = letter => (latinAlphabet.includes(letter) ? latinAlphabet : alphabet).indexOf(letter) + 1;
+let toyStep = 0;
+function lectureRows(letters, modulus) {
+  let state = BigInt(letters.length);
+  return Array.from(letters, letter => {
+    const number = BigInt(letterNumber(letter));
+    const prior = state;
+    const sum = prior + number;
+    const square = sum ** 2n;
+    const quotient = square / modulus;
+    const used = quotient * modulus;
+    state = square - used;
+    return {letter, number, prior, sum, square, quotient, used, state};
+  });
+}
+function renderToy() {
+  const input = el('toyInput').value;
+  const letters = input.toUpperCase();
+  const rawMod = el('toyMod').value.trim();
+  const modulus = /^\d{1,12}$/.test(rawMod) ? BigInt(rawMod) : 0n;
+  const validText = /^[А-Яа-яЁёA-Za-z]+$/u.test(input);
+  const validMod = modulus >= 2n;
+  const valid = validText && validMod;
+  const rows = valid ? lectureRows(letters,modulus) : [];
+  toyStep = Math.max(0,Math.min(toyStep,rows.length));
+  el('toyBytes').hidden = !validText;
+  el('toyBytes').textContent = validText ? 'Номера букв: ' + Array.from(letters, l => l + ' = ' + letterNumber(l)).join(' · ') : '';
+  const state = rows[toyStep - 1]?.state ?? BigInt(letters.length);
+  el('toyStatus').textContent = !input ? 'Введите слово, чтобы начать расчёт.' :
+    !validText ? 'Используйте русские или английские буквы без пробелов и знаков.' :
+    !validMod ? 'Введите целый модуль p от 2 до 999 999 999 999.' :
+    toyStep === 0 ? 'Шаг 0 из ' + rows.length + ' · h₀ = ' + state + ' (длина сообщения)' :
+    'Шаг ' + toyStep + ' из ' + rows.length + ' · ' + (toyStep === rows.length ? 'Итоговый хеш: ' : 'Промежуточный результат: ') + state;
+  const content = rows.slice(0,toyStep).map((row,i) => {
+    const tr = document.createElement('tr');
+    if (i === toyStep - 1) tr.className = 'current-step';
+    for (const value of [i+1, row.letter + ' = ' + row.number,
+      [
+        '(' + row.prior + ' + ' + row.number + ')² = ' + row.sum + '² = ' + row.square,
+        'Целое частное: ⌊' + row.square + ' ÷ ' + modulus + '⌋ = ' + row.quotient,
+        'Произведение: ' + modulus + ' × ' + row.quotient + ' = ' + row.used,
+        'Остаток: ' + row.square + ' − ' + row.used + ' = ' + row.state
+      ].join('\n'), row.state]) {
+      const td = document.createElement('td');
+      td.textContent = String(value);
+      if (typeof value === 'string' && value.includes('\n')) td.className = 'step-calculation';
+      tr.append(td);
+    }
+    return tr;
+  });
+  el('toyRows').replaceChildren(...content);
+  el('toyNext').disabled = el('toyAll').disabled = !valid || toyStep === rows.length;
+  el('toyPrev').disabled = el('toyReset').disabled = toyStep === 0;
+}
+el('toyNext').onclick = () => { toyStep++; renderToy(); };
+el('toyPrev').onclick = () => { toyStep--; renderToy(); };
+el('toyAll').onclick = () => { toyStep = el('toyInput').value.length; renderToy(); };
+el('toyReset').onclick = el('toyInput').oninput = el('toyMod').oninput = () => { toyStep = 0; renderToy(); };
+renderToy();
+
+</script></html>
